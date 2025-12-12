@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mind Quest - 心靈探索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+        
+        .font-game { font-family: 'Orbitron', sans-serif; }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .neon-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .neon-btn:hover {
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+            transform: translateY(-2px);
+        }
+        .neon-btn:active { transform: translateY(0); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+        .mood-item.selected {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.2);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+            transform: scale(1.05);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .modal-animate {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .level-up-text {
+            background: linear-gradient(to right, #fbbf24, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 flex flex-col items-center relative">
+
+    <nav class="w-full max-w-lg flex justify-between items-center mb-8 z-10">
+        <div class="flex items-center space-x-2">
+            <i class="ph-fill ph-game-controller text-3xl text-purple-400"></i>
+            <h1 class="text-2xl font-bold font-game tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                MIND QUEST
+            </h1>
+        </div>
+        <div class="flex flex-col items-end">
+            <span class="text-xs text-gray-400 uppercase tracking-widest">Player ID</span>
+            <div id="display-user-id" class="text-xs font-mono text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded cursor-pointer hover:bg-emerald-900/50 transition" title="點擊複製">
+                CONNECTING...
+            </div>
+        </div>
+    </nav>
+
+    <div id="observer-banner" class="w-full max-w-lg mb-4 hidden z-10">
+        <div class="bg-amber-900/40 border border-amber-500/50 text-amber-200 px-4 py-2 rounded-lg flex justify-between items-center text-sm">
+            <span><i class="ph-bold ph-eye mr-2"></i>觀察模式：檢視他人紀錄</span>
+            <button onclick="exitObserverMode()" class="underline text-xs hover:text-white">退出</button>
+        </div>
+    </div>
+
+    <!-- 玩家狀態欄 -->
+    <div class="w-full max-w-lg mb-8 glass-panel rounded-2xl p-4 relative overflow-hidden group z-10">
+        <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-500 to-pink-500"></div>
+        <div class="flex justify-between items-end mb-2">
+            <div>
+                <span class="text-gray-400 text-xs font-bold uppercase">Rank</span>
+                <div class="text-2xl font-bold text-white font-game flex items-center gap-2">
+                    LV. <span id="user-level">1</span> 
+                    <span id="user-title" class="text-sm px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-normal border border-purple-500/30">初心探索者</span>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-xs text-purple-300" id="xp-text">0 / 5 XP</span>
+            </div>
+        </div>
+        <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+            <div id="xp-bar" class="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-1000 ease-out" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <main class="w-full max-w-lg space-y-6 z-10">
+        <section id="mood-section" class="glass-panel rounded-2xl p-6">
+            <h2 class="text-lg font-bold mb-4 flex items-center text-gray-200">
+                <i class="ph ph-heartbeat text-pink-500 mr-2 text-xl"></i>
+                今日狀態掃描
+            </h2>
+            <div class="grid grid-cols-5 gap-2" id="mood-container"></div>
+            <div id="mood-feedback" class="mt-4 text-center h-6 text-sm font-medium text-purple-300 tracking-wide opacity-0 transition-opacity"></div>
+        </section>
+
+        <section id="quest-section" class="glass-panel rounded-2xl p-6 hidden border-l-4 border-l-yellow-400">
+            <div class="flex items-start space-x-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center shrink-0">
+                    <i class="ph-fill ph-chat-text text-yellow-400 text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-yellow-400 text-sm uppercase tracking-wider mb-1">Daily Quest</h3>
+                    <p id="quest-prompt" class="text-gray-300 text-sm leading-relaxed">...</p>
+                </div>
+            </div>
+            <textarea id="quest-input" rows="3" class="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3 text-sm text-gray-200 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition resize-none placeholder-gray-600" placeholder="輸入你的紀錄..."></textarea>
+            <button id="save-btn" disabled class="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 font-bold text-white shadow-lg neon-btn disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                <span id="btn-text">完成任務 (COMPLETE)</span>
+                <i class="ph-bold ph-arrow-right"></i>
+            </button>
+        </section>
+
+        <section class="glass-panel rounded-2xl p-6">
+            <h2 class="text-sm font-bold text-gray-400 mb-4 flex justify-between items-center uppercase tracking-wider">
+                <span id="history-title">Memory Log</span>
+                <i class="ph ph-clock-counter-clockwise"></i>
+            </h2>
+            <div id="history-feed" class="space-y-4 max-h-80 overflow-y-auto pr-1"></div>
+        </section>
+    </main>
+
+    <footer class="mt-12 mb-6 w-full max-w-lg flex justify-between items-center text-xs text-gray-600 z-10 relative px-2">
+        <span>Mind Quest v2.4</span>
+        <button onclick="openObserverModal()" class="flex items-center hover:text-purple-400 transition" title="家長/輔導員通道">
+            <i class="ph-bold ph-lock-key mr-1"></i> Access
+        </button>
+    </footer>
+
+    <!-- Modals (Observer, Reward, LevelUp) -->
+    <div id="observer-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 border border-gray-700 p-6 rounded-2xl w-full max-w-sm modal-animate">
+            <h3 class="text-xl font-bold text-white mb-2">輔導員/家長通道</h3>
+            <input type="text" id="target-id-input" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-white mb-4 font-mono focus:border-purple-500 outline-none" placeholder="請輸入 Player ID">
+            <div class="flex space-x-3">
+                <button onclick="closeObserverModal()" class="flex-1 py-2 rounded-lg bg-gray-700 text-gray-300">取消</button>
+                <button onclick="confirmObserverMode()" class="flex-1 py-2 rounded-lg bg-purple-600 text-white font-bold">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reward-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-40 p-4">
+        <div class="bg-gray-900 border border-purple-500/50 p-8 rounded-2xl w-full max-w-sm text-center shadow-[0_0_50px_rgba(168,85,247,0.3)] modal-animate relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500"></div>
+            <i class="ph-fill ph-check-circle text-5xl text-purple-400 mb-4 inline-block"></i>
+            <h3 class="text-xl font-bold font-game text-white mb-1 tracking-widest">QUEST COMPLETE</h3>
+            <p class="text-xs text-gray-400 uppercase tracking-widest mb-6">+1 EXP Gained</p>
+            <div class="bg-white/5 rounded-xl p-4 mb-6 border border-white/10">
+                <p id="quote-text" class="text-lg text-gray-200 font-medium italic leading-relaxed">"..."</p>
+            </div>
+            <button onclick="closeRewardModal()" class="w-full py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition">確認 (CONFIRM)</button>
+        </div>
+    </div>
+
+    <div id="levelup-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+        <div class="bg-gradient-to-b from-gray-900 to-gray-800 border border-yellow-500 p-8 rounded-2xl w-full max-w-sm text-center shadow-[0_0_80px_rgba(234,179,8,0.4)] modal-animate relative">
+            <div class="absolute -top-10 left-1/2 transform -translate-x-1/2 w-40 h-40 bg-yellow-500/20 blur-3xl rounded-full"></div>
+            <i class="ph-fill ph-crown text-6xl text-yellow-400 mb-2 inline-block drop-shadow-lg"></i>
+            <h3 class="text-4xl font-bold font-game level-up-text mb-2 tracking-widest italic">LEVEL UP!</h3>
+            <div class="text-gray-300 text-sm mb-6">你的心靈韌性提升了！</div>
+            <div class="bg-gray-900/50 rounded-xl p-4 mb-6 border border-yellow-500/30 relative overflow-hidden">
+                <div class="text-xs text-yellow-600 uppercase font-bold mb-1">New Rank Unlocked</div>
+                <div id="new-title-display" class="text-xl text-yellow-100 font-bold tracking-wider"></div>
+                <div id="new-title-desc" class="text-xs text-gray-400 mt-2"></div>
+            </div>
+            <button onclick="closeLevelUpModal()" class="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold rounded-lg hover:from-yellow-500 hover:to-yellow-400 transition transform hover:scale-[1.02] shadow-lg">領取榮耀 (CLAIM)</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === 您的專屬 Firebase 設定 (已自動填入) ===
+        const firebaseConfig = {
+            apiKey: "AIzaSyB5NT27oqpqrrvck50uMzh49bbj7OnyqlU",
+            authDomain: "mind-quest-sel.firebaseapp.com",
+            projectId: "mind-quest-sel",
+            storageBucket: "mind-quest-sel.firebasestorage.app",
+            messagingSenderId: "418491447578",
+            appId: "1:418491447578:web:ed0fc6248555b789a6d4e3"
+        };
+        // ========================================================
+
+        // 檢查是否已設定 Config
+        if (!firebaseConfig.apiKey) {
+            alert("請先設定 Firebase Config！請參考使用說明的步驟。");
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // --- 以下為應用程式邏輯 (不需修改) ---
+
+        const TITLES = [
+            { lv: 1, name: "初心探索者", desc: "踏上認識自我的第一步。" },
+            { lv: 2, name: "情緒偵察兵", desc: "你開始捕捉到心情變化的蛛絲馬跡。" },
+            { lv: 3, name: "心靈駭客", desc: "你學會了破解情緒的程式碼。" },
+            { lv: 4, name: "虛空行者", desc: "即使在低潮中，你也能自在行走。" },
+            { lv: 5, name: "光之守護者", desc: "你找到了照亮內心的力量。" },
+            { lv: 6, name: "靈魂鍊金術士", desc: "懂得將負面情緒轉化為成長養分。" },
+            { lv: 7, name: "覺察大師", desc: "你的內心如止水般清澈。" },
+            { lv: 8, name: "心靈領主", desc: "你是自己情緒王國的真正主人。" },
+            { lv: 9, name: "宇宙漫遊者", desc: "你的心靈已經如宇宙般廣闊。" },
+            { lv: 10, name: "傳奇引路人", desc: "你的存在本身就是一種力量。" },
+            { lv: 11, name: "時間織夢者", desc: "你能從過去學習，並編織未來。" },
+            { lv: 12, name: "渾沌導航員", desc: "在混亂中，你依然能找到方向。" },
+            { lv: 13, name: "深淵凝視者", desc: "面對黑暗，你不再恐懼。" },
+            { lv: 14, name: "希望點燈人", desc: "你為自己，也為他人帶來微光。" },
+            { lv: 15, name: "心靈終結者", desc: "沒有什麼情緒關卡能困住你了。" }
+        ];
+
+        const QUESTS = [
+            "如果你的心情是一首歌，現在是哪一首？",
+            "為了讓自己放鬆，你今天最想聽什麼類型的聲音（雨聲、貓叫聲、重金屬）？",
+            "如果現在有背景音樂 BGM，會是悲傷小提琴還是熱血搖滾樂？",
+            "找一首可以代表你這週主題曲的歌。",
+            "試著哼一段你最近腦中揮之不去的旋律。",
+            "掃描一下身體，哪裡感覺緊緊的？試著對那個部位吹一口氣。",
+            "深呼吸三次，感覺空氣流進鼻子的溫度是冷還是熱？",
+            "用力握緊拳頭 5 秒鐘，然後瞬間放鬆，感覺手掌的變化。",
+            "動動你的腳趾頭，試著把它們張到最開。",
+            "把手放在胸口，感覺一下你的心跳節奏。",
+            "現在你的肩膀是聳起來的嗎？試著把它放下來。",
+            "給現在的自己一個擁抱（或是拍拍肩膀）。",
+            "用舌頭頂一下上顎，然後放鬆你的下巴。",
+            "環顧四周，找出三個藍色的東西。",
+            "現在空氣中有什麼味道嗎？（如果沒有，你希望有什麼味道？）",
+            "摸摸看你身邊的東西（衣服、桌子），描述一下那個觸感。",
+            "如果你現在可以瞬間移動到一個地方，你會去哪裡？",
+            "找一件你今天覺得「觸感很舒服」的東西。",
+            "觀察窗外的一朵雲或一棵樹，看了它 10 秒鐘。",
+            "如果今天是一種顏色，那會是什麼顏色？",
+            "如果你的煩惱是個怪獸，它長什麼樣子？（試著想像它穿著滑稽的裙子）。",
+            "如果你是一隻動物，今天想當哪一種？（樹懶？獵豹？刺蝟？）",
+            "如果你的心情是一種天氣，現在是暴風雨還是陰天？",
+            "如果你現在有一個魔法，你最想變出什麼食物？",
+            "想像你有一個「情緒垃圾桶」，你現在想把什麼丟進去？",
+            "如果你的大腦是一個房間，現在裡面是整齊的還是亂七八糟的？",
+            "找一件你今天「有控制權」的事情（例如：決定穿什麼襪子、喝什麼飲料）。",
+            "如果你的好朋友今天心情跟你一樣，你會對他說什麼？",
+            "寫下一個你今天「放過自己」的時刻（沒有強迫自己完美）。",
+            "今天有沒有發生什麼「微小的好事」？（例如：公車剛好來了）。",
+            "防禦力提升：遇到不舒服的感覺時，你做了什麼來保護自己？",
+            "技能冷卻：當你感到壓力時，你用了什麼方法讓自己冷靜下來？",
+            "如果現在不想說話，就寫下「我現在只想安靜」也沒關係。",
+            "允許自己現在有一點點不開心，這也是一種能力。",
+            "這件事情在一年後，還會這麼重要嗎？",
+            "給今天的自己打一個分數（不是表現分，是生存分）。",
+            "如果喪屍爆發，你覺得你今天的狀態能存活多久？",
+            "如果可以跟一個虛構人物聊天，你想找誰？",
+            "用一個 Emoji 來總結今天的狀況。",
+            "如果要把今天的煩惱發射到外太空，你要用火箭還是投石機？",
+            "今天有遇到什麼讓你覺得「超瞎」或「荒謬」的事嗎？",
+            "如果你是遊戲設計師，你會給今天的關卡取什麼名字？",
+            "尋找補給：今天有什麼人或事物讓你感到放鬆？",
+            "想像一個讓你感到絕對安全的「秘密基地」，那裡有什麼？",
+            "回想一個讓你感到「被支持」的瞬間（哪怕是很小的事）。",
+            "今天有沒有吃到什麼好吃的東西？描述一下那個味道。",
+            "就像手機需要充電，你今天有讓自己「待機」一下嗎？",
+            "誰是你現在最想傳訊息抱怨或分享的人？",
+            "寫下一件你目前還算滿意的事情。"
+        ];
+
+        const QUOTES = [
+            "存檔點已更新。休息一下再出發。",
+            "系統提示：你的價值不由今天的表現決定。",
+            "即使是暫停 (Pause)，也是進度條的一部分。",
+            "像打遊戲一樣，卡關的時候就先去別的地方晃晃吧。",
+            "Bug 修復中... 給情緒一點時間重整。",
+            "你的作業系統正在升級，現在的不適只是重開機。",
+            "防禦力 +10。你今天保護了自己，這很棒。",
+            "AFK (暫離) 是被允許的，世界不會因此毀滅。",
+            "這不是失敗，這是累積經驗值 (XP)。",
+            "你的心靈防火牆今天擋下了很多攻擊，辛苦了。",
+            "404 Motivation Not Found. 沒關係，明天再重新搜尋。",
+            "別擔心，這只是困難模式 (Hard Mode)，你操作得很好了。",
+            "裝備檢查：睡飽了嗎？吃飽了嗎？",
+            "技能冷卻中 (Cooldown)... 請稍後再試。",
+            "解鎖成就：倖存者。你今天活下來了！",
+            "今天只想當個沙發馬鈴薯？沒問題，馬鈴薯也很好吃。",
+            "雖然今天有點糟，但至少你還記得登入這裡。",
+            "給自己拍拍手，你今天應付了好多鳥事。",
+            "如果累了就睡覺，夢裡什麼都有。",
+            "別對自己太嚴苛，你又不是機器人。",
+            "傳送虛擬抱抱給你 (Loading... 100%)。",
+            "今日成就：活著。這就很厲害了，不接受反駁。",
+            "把煩惱丟進資源回收桶，記得按「清空」。",
+            "人生好難，但至少這裡的按鈕很好按。",
+            "如果今天是一坨屎，那也是一坨很努力的屎。",
+            "你的被窩正在呼喚你，回應它的召喚吧。",
+            "不要跟別人比，人家的背景程式又不一樣。",
+            "今天沒做什麼事？沒關係，你還是在進行光合作用。",
+            "允許自己休息，這也是戰略的一部分。",
+            "不用急著變好，慢慢來比較快。",
+            "你的感受是有效的，不需要向任何人證明。",
+            "今天的你已經做得夠好了，真的。",
+            "沒有一種情緒是錯誤的，它們只是經過你的訪客。",
+            "深呼吸，這個關卡會過去的。",
+            "你比你自己想像的還要堅強一點點。",
+            "接受自己的不完美，那是你的獨特屬性。",
+            "不舒服的感覺會來，也會走，像雲一樣。",
+            "你不必隨時都保持正向，厭世一下也沒關係。",
+            "你的價值存在於你的呼吸之中，而不在你的成就裡。",
+            "對於那些無法控制的事，就先放手吧。",
+            "照顧自己不是自私，是必要的維修保養。",
+            "哭泣不是軟弱，是系統在釋放壓力。",
+            "你不需要現在就有答案，迷惘一下是可以的。",
+            "這一刻感到安全嗎？如果是，就多停留一秒。",
+            "謝謝你今天沒有放棄自己。",
+            "你的敏感是一種天賦，雖然有時候它很痛。",
+            "慢慢走，比較快到。",
+            "記得對鏡子裡的那個傢伙好一點。",
+            "不管今天發生什麼，我都站在你這邊。"
+        ];
+
+        const MOODS = [
+            { icon: 'ph-lightning-slash', label: '能量低落', value: 1, color: 'text-gray-400', bg: 'bg-gray-800' },
+            { icon: 'ph-cloud-rain', label: '心情鬱悶', value: 2, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+            { icon: 'ph-waves', label: '平靜無波', value: 3, color: 'text-teal-400', bg: 'bg-teal-900/30' },
+            { icon: 'ph-smiley', label: '感覺不錯', value: 4, color: 'text-yellow-400', bg: 'bg-yellow-900/30' },
+            { icon: 'ph-lightning', label: '能量滿滿', value: 5, color: 'text-amber-400', bg: 'bg-amber-900/30' }
+        ];
+
+        let myUserId = null, viewUserId = null;
+        let currentMood = null;
+        let isObserverMode = false;
+        let unsubscribeData = null;
+        let lastEntryCount = null;
+        let pendingLevelUpTitle = null; 
+
+        function initApp() {
+            const container = document.getElementById('mood-container');
+            MOODS.forEach(m => {
+                const btn = document.createElement('button');
+                btn.className = `mood-item flex flex-col items-center justify-center p-2 rounded-xl border border-gray-700 hover:border-gray-500 transition-all duration-300 group ${m.bg}`;
+                btn.innerHTML = `<i class="ph-fill ${m.icon} text-3xl mb-1 ${m.color} group-hover:scale-110 transition-transform"></i>`;
+                btn.onclick = () => {
+                    if (isObserverMode) { alert("觀察模式下無法記錄"); return; }
+                    selectMood(btn, m);
+                };
+                container.appendChild(btn);
+            });
+
+            document.getElementById('save-btn').onclick = saveEntry;
+            
+            window.openObserverModal = () => document.getElementById('observer-modal').classList.remove('hidden') || document.getElementById('observer-modal').classList.add('flex');
+            window.closeObserverModal = () => document.getElementById('observer-modal').classList.add('hidden') || document.getElementById('observer-modal').classList.remove('flex');
+            window.confirmObserverMode = confirmObserverMode;
+            window.exitObserverMode = exitObserverMode;
+            window.closeRewardModal = closeRewardModal;
+            window.closeLevelUpModal = closeLevelUpModal;
+
+            signInAnonymously(auth).catch(e => console.error("Login Failed", e));
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    myUserId = user.uid;
+                    viewUserId = myUserId;
+                    updateIdDisplay(myUserId);
+                    startDataSync(viewUserId);
+                }
+            });
+        }
+
+        function confirmObserverMode() {
+            const input = document.getElementById('target-id-input').value.trim();
+            if (!input) return;
+            viewUserId = input;
+            isObserverMode = true;
+            document.getElementById('observer-modal').classList.add('hidden');
+            document.getElementById('observer-banner').classList.remove('hidden');
+            document.getElementById('history-title').textContent = `Viewing: ${input.slice(0,6)}...`;
+            document.getElementById('mood-section').style.opacity = '0.5';
+            document.getElementById('mood-section').style.pointerEvents = 'none';
+            document.getElementById('display-user-id').textContent = 'OBSERVER';
+            lastEntryCount = null;
+            startDataSync(viewUserId);
+        }
+
+        function exitObserverMode() {
+            isObserverMode = false;
+            viewUserId = myUserId;
+            document.getElementById('observer-banner').classList.add('hidden');
+            document.getElementById('history-title').textContent = 'Memory Log';
+            document.getElementById('mood-section').style.opacity = '1';
+            document.getElementById('mood-section').style.pointerEvents = 'auto';
+            updateIdDisplay(myUserId);
+            lastEntryCount = null;
+            startDataSync(viewUserId);
+        }
+
+        function updateIdDisplay(id) {
+            const el = document.getElementById('display-user-id');
+            el.textContent = id;
+            el.onclick = () => { navigator.clipboard.writeText(id); alert('ID Copied!'); };
+        }
+
+        function startDataSync(targetId) {
+            if (unsubscribeData) unsubscribeData();
+            const q = query(collection(db, 'mood_entries'));
+
+            unsubscribeData = onSnapshot(q, (snapshot) => {
+                const entries = [];
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if (d.userId === targetId) entries.push({id: doc.id, ...d});
+                });
+                entries.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
+                
+                checkLevelUp(entries.length);
+                renderHistory(entries);
+            });
+        }
+
+        function checkLevelUp(currentCount) {
+            const currentLevel = Math.floor(currentCount / 5) + 1;
+            const xp = currentCount % 5;
+            document.getElementById('xp-text').textContent = `${xp} / 5 XP`;
+            document.getElementById('xp-bar').style.width = `${(xp / 5) * 100}%`;
+            
+            const titleData = TITLES.find(t => t.lv === currentLevel) || { name: `傳奇等級 ${currentLevel}`, desc: "你已經超越了極限。" };
+            document.getElementById('user-level').textContent = currentLevel;
+            document.getElementById('user-title').textContent = titleData.name;
+
+            if (isObserverMode) { lastEntryCount = currentCount; return; }
+            if (lastEntryCount === null) { lastEntryCount = currentCount; return; }
+
+            if (currentCount > lastEntryCount) {
+                const oldLevel = Math.floor(lastEntryCount / 5) + 1;
+                const newLevel = Math.floor(currentCount / 5) + 1;
+
+                if (newLevel > oldLevel) {
+                    console.log("Level Up Detected!");
+                    pendingLevelUpTitle = titleData;
+                }
+                lastEntryCount = currentCount;
+            }
+        }
+
+        function selectMood(btn, moodData) {
+            document.querySelectorAll('.mood-item').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            currentMood = moodData;
+            document.getElementById('mood-feedback').textContent = `STATUS: ${moodData.label}`;
+            document.getElementById('mood-feedback').style.opacity = '1';
+            
+            const section = document.getElementById('quest-section');
+            section.classList.remove('hidden');
+            document.getElementById('quest-prompt').textContent = QUESTS[Math.floor(Math.random() * QUESTS.length)];
+            document.getElementById('save-btn').disabled = false;
+        }
+
+        async function saveEntry() {
+            if (!myUserId || !currentMood) return;
+            const btn = document.getElementById('save-btn');
+            btn.disabled = true;
+            btn.textContent = "Processing...";
+            const input = document.getElementById('quest-input');
+            
+            try {
+                pendingLevelUpTitle = null;
+                await addDoc(collection(db, 'mood_entries'), {
+                    userId: myUserId,
+                    timestamp: serverTimestamp(),
+                    moodValue: currentMood.value,
+                    moodLabel: currentMood.label,
+                    moodIcon: currentMood.icon,
+                    questPrompt: document.getElementById('quest-prompt').textContent,
+                    questResponse: input.value || "無文字紀錄",
+                    platform: 'MindQuest_Deploy'
+                });
+
+                input.value = '';
+                document.getElementById('quest-section').classList.add('hidden');
+                document.querySelectorAll('.mood-item').forEach(b => b.classList.remove('selected'));
+                document.getElementById('mood-feedback').style.opacity = '0';
+                currentMood = null;
+                showRewardModal();
+            } catch (err) {
+                console.error(err);
+                alert("上傳失敗：請檢查 Firebase Config 或網路連線。");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span id="btn-text">完成任務 (COMPLETE)</span><i class="ph-bold ph-arrow-right"></i>`;
+            }
+        }
+
+        function showRewardModal() {
+            const modal = document.getElementById('reward-modal');
+            const quoteText = document.getElementById('quote-text');
+            quoteText.textContent = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeRewardModal() {
+            const modal = document.getElementById('reward-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            if (pendingLevelUpTitle) {
+                setTimeout(() => { showLevelUpModal(pendingLevelUpTitle); }, 300);
+            }
+        }
+
+        function showLevelUpModal(titleData) {
+            const modal = document.getElementById('levelup-modal');
+            document.getElementById('new-title-display').textContent = titleData.name;
+            document.getElementById('new-title-desc').textContent = titleData.desc;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            triggerConfetti();
+        }
+
+        function closeLevelUpModal() {
+            const modal = document.getElementById('levelup-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            pendingLevelUpTitle = null;
+        }
+
+        function triggerConfetti() {
+            var duration = 3 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 60 };
+            function randomInRange(min, max) { return Math.random() * (max - min) + min; }
+            var interval = setInterval(function() {
+              var timeLeft = animationEnd - Date.now();
+              if (timeLeft <= 0) return clearInterval(interval);
+              var particleCount = 50 * (timeLeft / duration);
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        function renderHistory(entries) {
+            const list = document.getElementById('history-feed');
+            list.innerHTML = '';
+            if (entries.length === 0) {
+                list.innerHTML = `<div class="text-center py-8 text-gray-600 text-sm"><i class="ph ph-database text-2xl mb-2 block"></i>尚無資料</div>`;
+                return;
+            }
+            entries.forEach(e => {
+                const date = e.timestamp ? new Date(e.timestamp.toMillis()).toLocaleDateString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '..';
+                let borderClass = 'border-gray-600';
+                if(e.moodValue >= 4) borderClass = 'border-amber-500';
+                if(e.moodValue <= 2) borderClass = 'border-blue-500';
+
+                const item = document.createElement('div');
+                item.className = `bg-gray-800/50 p-4 rounded-xl border-l-4 ${borderClass} mb-3 hover:bg-gray-800 transition`;
+                item.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i class="ph-fill ${e.moodIcon} text-xl text-gray-300"></i>
+                            <span class="font-bold text-gray-200 text-sm">${e.moodLabel}</span>
+                        </div>
+                        <span class="text-xs text-gray-500 font-mono">${date}</span>
+                    </div>
+                    ${e.questResponse && e.questResponse !== "無文字紀錄" ? `
+                        <div class="mt-2 space-y-1">
+                            <div class="text-xs text-purple-400 font-medium opacity-80 mb-1">
+                                <i class="ph-bold ph-question mr-1"></i>${e.questPrompt || '未記錄問題'}
+                            </div>
+                            <div class="text-xs text-gray-300 bg-gray-900/50 p-2 rounded border border-gray-700/50 leading-relaxed">
+                                ${e.questResponse}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
