@@ -90,7 +90,6 @@
         </div>
     </div>
 
-    <!-- 玩家狀態欄 -->
     <div class="w-full max-w-lg mb-8 glass-panel rounded-2xl p-4 relative overflow-hidden group z-10">
         <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-500 to-pink-500"></div>
         <div class="flex justify-between items-end mb-2">
@@ -147,13 +146,12 @@
     </main>
 
     <footer class="mt-12 mb-6 w-full max-w-lg flex justify-between items-center text-xs text-gray-600 z-10 relative px-2">
-        <span>Mind Quest v2.6 (Auto-Debug)</span>
+        <span>Mind Quest v2.7 (Key Fixed)</span>
         <button onclick="openObserverModal()" class="flex items-center hover:text-purple-400 transition" title="家長/輔導員通道">
             <i class="ph-bold ph-lock-key mr-1"></i> Access
         </button>
     </footer>
 
-    <!-- Modals (Observer, Reward, LevelUp) -->
     <div id="observer-modal" class="fixed inset-0 bg-black/90 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
         <div class="bg-gray-800 border border-gray-700 p-6 rounded-2xl w-full max-w-sm modal-animate">
             <h3 class="text-xl font-bold text-white mb-2">輔導員/家長通道</h3>
@@ -198,10 +196,10 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // === 您的專屬 Firebase 設定 (已自動填入) ===
-        // 這些資料來自您的截圖 image_c9db9d.jpg，請勿修改
+        // === 您的專屬 Firebase 設定 (已修復 Key) ===
+        // 我們已經將 Key 更新為您 Google Cloud 上顯示的正確版本 (MI27...)
         const firebaseConfig = {
-            apiKey: "AIzaSyB5NT27oqpqrrvck50uMzh49bbj7OnyqlU",
+            apiKey: "AIzaSyB5MI27oqpqrrvck50uMzh49bbj7Onyq1U",
             authDomain: "mind-quest-sel.firebaseapp.com",
             projectId: "mind-quest-sel",
             storageBucket: "mind-quest-sel.firebasestorage.app",
