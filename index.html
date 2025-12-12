@@ -147,7 +147,7 @@
     </main>
 
     <footer class="mt-12 mb-6 w-full max-w-lg flex justify-between items-center text-xs text-gray-600 z-10 relative px-2">
-        <span>Mind Quest v2.4</span>
+        <span>Mind Quest v2.6 (Auto-Debug)</span>
         <button onclick="openObserverModal()" class="flex items-center hover:text-purple-400 transition" title="家長/輔導員通道">
             <i class="ph-bold ph-lock-key mr-1"></i> Access
         </button>
@@ -199,6 +199,7 @@
         import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // === 您的專屬 Firebase 設定 (已自動填入) ===
+        // 這些資料來自您的截圖 image_c9db9d.jpg，請勿修改
         const firebaseConfig = {
             apiKey: "AIzaSyB5NT27oqpqrrvck50uMzh49bbj7OnyqlU",
             authDomain: "mind-quest-sel.firebaseapp.com",
@@ -209,16 +210,11 @@
         };
         // ========================================================
 
-        // 檢查是否已設定 Config
-        if (!firebaseConfig.apiKey) {
-            alert("請先設定 Firebase Config！請參考使用說明的步驟。");
-        }
-
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // --- 以下為應用程式邏輯 (不需修改) ---
+        // --- 以下為應用程式邏輯 ---
 
         const TITLES = [
             { lv: 1, name: "初心探索者", desc: "踏上認識自我的第一步。" },
@@ -379,9 +375,40 @@
             window.closeRewardModal = closeRewardModal;
             window.closeLevelUpModal = closeLevelUpModal;
 
-            signInAnonymously(auth).catch(e => console.error("Login Failed", e));
+            // 啟動連線超時偵測
+            const timeoutId = setTimeout(() => {
+                const statusEl = document.getElementById('display-user-id');
+                if (statusEl && statusEl.textContent.includes('CONNECTING')) {
+                    statusEl.textContent = '連線逾時 (請檢查網路)';
+                    statusEl.classList.add('text-red-400', 'font-bold');
+                    // 如果超時，我們會彈出警告，但也會顯示 API Key 幫助除錯
+                    alert("連線逾時！\n這可能是網路防火牆問題，也可能是程式碼沒更新。\n\n目前的設定 API Key 開頭是：" + firebaseConfig.apiKey.substring(0, 5) + "...");
+                }
+            }, 8000); 
+
+            signInAnonymously(auth)
+                .then(() => {
+                    clearTimeout(timeoutId); // 連線成功
+                })
+                .catch(e => {
+                    clearTimeout(timeoutId);
+                    console.error("Login Failed", e);
+                    
+                    let debugMsg = "連線失敗。\n錯誤代碼：" + e.code;
+                    if (e.code.includes('api-key-not-valid')) {
+                        debugMsg = "【嚴重錯誤】API Key 無效！\n這代表 Vercel 上的程式碼是舊的，或者密碼填錯了。\n\n目前使用的 Key 是：" + firebaseConfig.apiKey;
+                    } else if (e.code === 'auth/operation-not-allowed') {
+                        debugMsg = "請開啟 Firebase 的「匿名登入」功能。";
+                    }
+
+                    document.getElementById('display-user-id').textContent = '連線錯誤';
+                    document.getElementById('display-user-id').classList.add('text-red-400');
+                    alert(debugMsg);
+                });
+
             onAuthStateChanged(auth, (user) => {
                 if (user) {
+                    clearTimeout(timeoutId);
                     myUserId = user.uid;
                     viewUserId = myUserId;
                     updateIdDisplay(myUserId);
@@ -420,6 +447,7 @@
         function updateIdDisplay(id) {
             const el = document.getElementById('display-user-id');
             el.textContent = id;
+            el.className = "text-xs font-mono text-emerald-400 bg-emerald-900/30 px-2 py-1 rounded cursor-pointer hover:bg-emerald-900/50 transition";
             el.onclick = () => { navigator.clipboard.writeText(id); alert('ID Copied!'); };
         }
 
@@ -479,7 +507,12 @@
         }
 
         async function saveEntry() {
-            if (!myUserId || !currentMood) return;
+            if (!myUserId) {
+                alert("尚未連線成功，無法儲存。請重新整理或檢查網路。");
+                return;
+            }
+            if (!currentMood) return;
+
             const btn = document.getElementById('save-btn');
             btn.disabled = true;
             btn.textContent = "Processing...";
